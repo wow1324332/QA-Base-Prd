@@ -50,6 +50,12 @@ const globalStyles = `
   }
   .animate-fade-in { animation: cinematicFadeIn 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards; }
 
+  @keyframes fastFadeIn {
+    0% { opacity: 0; transform: translateY(8px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  .animate-fast-fade { animation: fastFadeIn 0.2s ease-out forwards; }
+
   @keyframes simpleFade {
     0% { opacity: 0; }
     100% { opacity: 1; }
@@ -129,7 +135,7 @@ const CustomSelect = ({ value, onChange, options, className }) => {
         <ChevronDown className={`w-4 h-4 ml-2 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
       </div>
       {isOpen && (
-        <div className="absolute z-[60] w-full mt-2 bg-white/95 backdrop-blur-xl border border-gray-100 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] py-1.5 animate-fade-in overflow-hidden left-0 min-w-max">
+        <div className="absolute z-[60] w-full mt-2 bg-white/95 backdrop-blur-xl border border-gray-100 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] py-1.5 animate-fast-fade overflow-hidden left-0 min-w-max">
           {options.map(opt => (
             <div
               key={opt.value}
@@ -172,7 +178,7 @@ const CustomDatePicker = ({ value, onChange, disabled, alignRight }) => {
         <CalendarDays className="w-4 h-4 text-gray-400" />
       </div>
       {isOpen && !disabled && (
-        <div className={`absolute z-[70] mt-2 bg-white/95 backdrop-blur-xl border border-gray-100 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] p-3 animate-fade-in w-64 ${alignRight ? 'right-0' : 'left-0'}`}>
+        <div className={`absolute z-[70] mt-2 bg-white/95 backdrop-blur-xl border border-gray-100 rounded-xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] p-3 animate-fast-fade w-64 ${alignRight ? 'right-0' : 'left-0'}`}>
           <div className="flex justify-between items-center mb-2">
             <button type="button" onClick={() => setViewDate(new Date(year, month - 1, 1))} className="p-1 hover:bg-gray-100 rounded text-gray-500"><ChevronLeft className="w-4 h-4"/></button>
             <span className="text-sm font-bold text-gray-700">{year}년 {month + 1}월</span>
@@ -443,7 +449,7 @@ const FunctionalBoard = ({ user, onNavigate, onLogout, onShowProfileModal, onSho
             </div>
 
             {showProfileMenu && (
-              <div className="absolute right-0 mt-3 w-48 bg-white/90 backdrop-blur-xl rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-gray-100 py-2 animate-fade-in z-50">
+              <div className="absolute right-0 mt-3 w-48 bg-white/90 backdrop-blur-xl rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.08)] border border-gray-100 py-2 animate-fast-fade z-50">
                 <button 
                   onClick={() => { setShowProfileMenu(false); onShowProfileModal(); }}
                   className="w-full text-left px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 transition-colors flex items-center"
@@ -525,7 +531,7 @@ const ProfileModal = ({ user, onClose, onUpdateProfile }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in">
+    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fast-fade">
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-[340px] border border-gray-100 relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
         <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center"><User className="w-5 h-5 mr-2 text-gray-600"/> 프로필 수정</h3>
@@ -570,7 +576,7 @@ const AdminModal = ({ onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in">
+    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fast-fade">
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-[340px] border border-gray-100 relative flex flex-col max-h-[80vh]">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
         <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center shrink-0"><ShieldCheck className="w-5 h-5 mr-2 text-gray-600"/> 가입 신청 승인</h3>
@@ -600,7 +606,7 @@ const AdminModal = ({ onClose }) => {
 const DeviceAddModal = ({ isOpen, onClose, formData, setFormData, onSubmit }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in">
+    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fast-fade">
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-[400px] border border-gray-100 relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
         <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center"><Plus className="w-5 h-5 mr-2 text-gray-600"/> 디바이스 추가</h3>
@@ -670,7 +676,7 @@ const DeviceDetailModal = ({ device, onClose, onUpdate, onDelete, user }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in">
+    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fast-fade">
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-[400px] border border-gray-100 relative">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
         <h3 className="text-lg font-medium text-gray-800 mb-4">디바이스 상세 정보</h3>
@@ -1035,7 +1041,7 @@ const DevicesDashboard = ({ user, onNavigate, onLogout, onQuit }) => {
       </div>
 
       {rentModal.isOpen && (
-        <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in">
+        <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fast-fade">
           <div className="bg-white rounded-2xl shadow-2xl p-6 w-[320px] transform transition-all border border-gray-100">
             <h3 className="text-lg font-medium text-gray-800 mb-2">{rentModal.targetStatus === '사용중' ? '사용자 정보 입력' : '대여자 정보 입력'}</h3>
             <p className="text-xs text-gray-500 mb-5">상태를 변경하려면 이름을 입력해주세요.</p>
@@ -1058,7 +1064,7 @@ const DevicesDashboard = ({ user, onNavigate, onLogout, onQuit }) => {
 const ProjectModal = ({ isOpen, onClose, formData, setFormData, onSubmit, isViewer, isEdit, onDelete }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fade-in">
+    <div className="fixed inset-0 bg-gray-900/30 backdrop-blur-sm z-50 flex items-center justify-center animate-fast-fade">
       <div className="bg-white rounded-2xl shadow-2xl p-6 w-[450px] border border-gray-100 relative max-h-[90vh] flex flex-col">
         <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
         <h3 className="text-lg font-medium text-gray-800 mb-4 flex items-center shrink-0">
