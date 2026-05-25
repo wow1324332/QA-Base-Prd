@@ -9,12 +9,12 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, doc, writeBatch, updateDoc, addDoc, deleteDoc, getDoc, setDoc, query, where } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyATKKSrUm6NKATdZdJeDxhQ5Dj2Q32ujh0",
-  authDomain: "q-base-dev.firebaseapp.com",
-  projectId: "q-base-dev",
-  storageBucket: "q-base-dev.firebasestorage.app",
-  messagingSenderId: "756427289812",
-  appId: "1:756427289812:web:217c6ebb1bfbd1d931f741"
+  apiKey: "AIzaSyBIsBcW0eBceMAJdhGsKmdNew7vvMPbwB4",
+  authDomain: "qa-base-prd.firebaseapp.com",
+  projectId: "qa-base-prd",
+  storageBucket: "qa-base-prd.firebasestorage.app",
+  messagingSenderId: "138324755275",
+  appId: "1:138324755275:web:ead26c4202fad8c0885ece"
 };
 
 const app = initializeApp(firebaseConfig);
