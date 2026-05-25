@@ -1585,6 +1585,7 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState('');
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
 
   useEffect(() => {
     const styleSheet = document.createElement("style");
@@ -1594,6 +1595,15 @@ export default function App() {
     return () => { document.head.removeChild(styleSheet); };
   }, []);
 
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
   const handleLogin = (userData) => {
     setUser(userData);
     setScreen('loadingBoard');
@@ -1601,11 +1611,23 @@ export default function App() {
 
   const showToast = (msg) => setToastMessage(msg);
 
+  const handleInstallApp = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    } else {
+      showToast('기기가 PWA 설치를 지원하지 않거나 이미 설치되어 있습니다.');
+    }
+  };
+
   return (
     <>
       {toastMessage && <Toast message={toastMessage} onClose={() => setToastMessage('')} />}
       {screen === 'splash' && <SplashScreen onComplete={() => setScreen('login')} />}
-      {screen === 'login' && <LoginScreen onLogin={handleLogin} onInstallApp={() => showToast('기기가 PWA 설치를 지원하지 않거나 이미 설치되어 있습니다.')} />}
+      {screen === 'login' && <LoginScreen onLogin={handleLogin} onInstallApp={handleInstallApp} />}
       {screen === 'loadingBoard' && <TransitionLoading title="Functional Board" onComplete={() => setScreen('board')} />}
       {screen === 'board' && <FunctionalBoard user={user} onNavigate={(target) => setScreen(`loading_${target}`)} onLogout={() => { setUser(null); setScreen('login'); }} onShowProfileModal={() => setShowProfileModal(true)} onShowAdminModal={() => setShowAdminModal(true)} />}
       
