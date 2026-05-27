@@ -10,12 +10,12 @@ import { initializeApp } from "firebase/app";
 import { getFirestore, collection, onSnapshot, doc, writeBatch, updateDoc, addDoc, deleteDoc, getDoc, setDoc, query, where } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyBIsBcW0eBceMAJdhGsKmdNew7vvMPbwB4",
-  authDomain: "qa-base-prd.firebaseapp.com",
-  projectId: "qa-base-prd",
-  storageBucket: "qa-base-prd.firebasestorage.app",
-  messagingSenderId: "138324755275",
-  appId: "1:138324755275:web:ead26c4202fad8c0885ece"
+  apiKey: "AIzaSyATKKSrUm6NKATdZdJeDxhQ5Dj2Q32ujh0",
+  authDomain: "q-base-dev.firebaseapp.com",
+  projectId: "q-base-dev",
+  storageBucket: "q-base-dev.firebasestorage.app",
+  messagingSenderId: "756427289812",
+  appId: "1:756427289812:web:217c6ebb1bfbd1d931f741"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -1279,6 +1279,7 @@ const ScheduleCalendar = ({ schedules, onShowDetails, user, onUpdateEndDate, onU
   
   const [assigneeFilter, setAssigneeFilter] = useState('All');
   const [tooltipInfo, setTooltipInfo] = useState({ visible: false, x: 0, y: 0, text: '', assignee: '' });
+  const [isDragging, setIsDragging] = useState(false);
   const calendarRef = useRef(null);
 
   const uniqueAssignees = Array.from(new Set(schedules.map(s => s.assignee).filter(Boolean)));
@@ -1314,40 +1315,32 @@ const ScheduleCalendar = ({ schedules, onShowDetails, user, onUpdateEndDate, onU
     while (days.length < totalCellsNeeded) {
       days.push({ date: new Date(y, m + 1, nextMonthDay++), isCurrentMonth: false });
     }
-    return days;
-  };
-
-  const getProjectSlots = (scheds, y, m) => {
-    const sorted = [...scheds].sort((a, b) => new Date(a.startDate) - new Date(b.startDate) || new Date(b.endDate) - new Date(a.endDate));
-    const slots = []; 
-    const scheduleToSlot = {};
-
-    sorted.forEach(s => {
-      let assignedSlot = 0;
-      while (true) {
-        if (!slots[assignedSlot]) {
-          slots[assignedSlot] = [];
-          slots[assignedSlot].push(s);
-          scheduleToSlot[s.id] = assignedSlot;
-          break;
-        }
-        const overlaps = slots[assignedSlot].some(existing => (s.startDate <= existing.endDate && s.endDate >= existing.startDate));
-        if (!overlaps) {
-          slots[assignedSlot].push(s);
-          scheduleToSlot[s.id] = assignedSlot;
-          break;
-        }
-        assignedSlot++;
-      }
+    
+    return days.map(day => {
+      const d = day.date;
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return { ...day, dateStr };
     });
-    return { scheduleToSlot, maxSlot: slots.length };
   };
 
   const renderMonthGrid = (y, m) => {
     const daysArray = getDaysArray(y, m);
     const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
     const filteredDayNames = showWeekend ? dayNames : dayNames.slice(1, 6);
-    const { scheduleToSlot, maxSlot } = getProjectSlots(filteredSchedules, y, m);
+
+    const rows = [];
+    let currentRow = [];
+    daysArray.forEach(day => {
+      const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
+      if (!showWeekend && isWeekend) return;
+      
+      currentRow.push(day);
+      if (currentRow.length === (showWeekend ? 7 : 5)) {
+        rows.push(currentRow);
+        currentRow = [];
+      }
+    });
+    if (currentRow.length > 0) rows.push(currentRow);
 
     return (
       <div 
@@ -1359,190 +1352,210 @@ const ScheduleCalendar = ({ schedules, onShowDetails, user, onUpdateEndDate, onU
             <div key={i} className="py-3 text-center text-xs font-extrabold text-gray-700 tracking-widest uppercase">{day}</div>
           ))}
         </div>
-        <div className="flex-1 overflow-y-auto no-scrollbar">
-          <div 
-            className={`grid ${showWeekend ? 'grid-cols-7' : 'grid-cols-5'} gap-[1px] bg-gray-200`}
-            style={{ gridAutoRows: 'minmax(120px, max-content)' }}
-          >
-            {daysArray.map((dayObj, idx) => {
-              const { date, isCurrentMonth } = dayObj;
-              if (!showWeekend && (date.getDay() === 0 || date.getDay() === 6)) return null;
-              
-              const isToday = date.toDateString() === new Date().toDateString();
-              const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-              
-              const isHoliday = HOLIDAYS.includes(dateStr);
-              const isSun = date.getDay() === 0;
-              const isSat = date.getDay() === 6;
-
-              let dateNumColor = 'text-gray-800';
-              if (!isCurrentMonth) dateNumColor = 'text-gray-300';
-              else if (isSun || isHoliday) dateNumColor = 'text-red-500';
-              else if (isSat) dateNumColor = 'text-blue-500';
-              
-              const dayProjects = [];
-              for (let i = 0; i < maxSlot; i++) {
-                const proj = filteredSchedules.find(s => s.startDate <= dateStr && s.endDate >= dateStr && scheduleToSlot[s.id] === i);
-                dayProjects.push(proj || null);
+        <div className="flex-1 overflow-y-auto no-scrollbar flex flex-col gap-[1px] bg-gray-200">
+          {rows.map((row, rowIdx) => {
+            const rowStartDate = row[0].dateStr;
+            const rowEndDate = row[row.length - 1].dateStr;
+            const rowProjects = filteredSchedules.filter(s => s.startDate <= rowEndDate && s.endDate >= rowStartDate)
+              .sort((a, b) => new Date(a.startDate) - new Date(b.startDate) || new Date(b.endDate) - new Date(a.endDate));
+            
+            const slots = []; 
+            const rowScheduleToSlot = {};
+            rowProjects.forEach(s => {
+              let assignedSlot = 0;
+              while (true) {
+                if (!slots[assignedSlot]) {
+                  slots[assignedSlot] = [s];
+                  rowScheduleToSlot[s.id] = assignedSlot;
+                  break;
+                }
+                const overlaps = slots[assignedSlot].some(existing => (s.startDate <= existing.endDate && s.endDate >= existing.startDate));
+                if (!overlaps) {
+                  slots[assignedSlot].push(s);
+                  rowScheduleToSlot[s.id] = assignedSlot;
+                  break;
+                }
+                assignedSlot++;
               }
+            });
+            const maxRowSlot = slots.length;
 
-              const columns = showWeekend ? 7 : 5;
-              const colIndex = idx % columns;
+            return (
+              <div 
+                key={rowIdx} 
+                className={`grid ${showWeekend ? 'grid-cols-7' : 'grid-cols-5'} gap-[1px] bg-gray-200 shrink-0`}
+                style={{ gridAutoRows: 'minmax(120px, max-content)' }}
+              >
+                {row.map((dayObj, colIndex) => {
+                  const { date, isCurrentMonth, dateStr } = dayObj;
+                  const isToday = date.toDateString() === new Date().toDateString();
+                  const isHoliday = HOLIDAYS.includes(dateStr);
+                  const isSun = date.getDay() === 0;
+                  const isSat = date.getDay() === 6;
 
-              return (
-                <div 
-                  key={idx} 
-                  className={`group flex flex-col bg-white h-full relative cursor-pointer ${!isCurrentMonth ? 'bg-gray-50/80' : 'transition-colors duration-300'}`}
-                  style={{ zIndex: 50 - colIndex }}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    const resizeProjectId = e.dataTransfer.getData('resizeProjectId');
-                    if (resizeProjectId && onUpdateEndDate) {
-                      onUpdateEndDate(resizeProjectId, dateStr);
-                    }
-                    const resizeStartProjectId = e.dataTransfer.getData('resizeStartProjectId');
-                    if (resizeStartProjectId && onUpdateStartDate) {
-                      onUpdateStartDate(resizeStartProjectId, dateStr);
-                    }
-                  }}
-                >
-                  {/* 빈공간 클릭/호버 배경 층 */}
-                  <div 
-                    className="absolute inset-0 z-0 flex flex-col pointer-events-auto group/plus"
-                    onClick={() => onCellClick && onCellClick(dateStr)}
-                  >
-                    <div className="absolute inset-0 bg-transparent group-hover/plus:bg-gray-50/50 transition-colors pointer-events-none"></div>
-                    <div className="h-8 shrink-0 pointer-events-none"></div>
-                    <div className="flex-1 flex items-center justify-center relative z-10">
-                      <Plus className="text-gray-400 w-8 h-8 opacity-0 group-hover/plus:opacity-100 transition-opacity drop-shadow-sm" strokeWidth={1.5} />
-                    </div>
-                  </div>
-
-                  {/* 날짜 숫자 */}
-                  <div className="h-8 pt-2 px-2 flex justify-start shrink-0 z-10 pointer-events-none">
-                    <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-gray-900 text-white shadow-lg' : dateNumColor}`}>
-                      {date.getDate()}
-                    </span>
-                  </div>
+                  let dateNumColor = 'text-gray-800';
+                  if (!isCurrentMonth) dateNumColor = 'text-gray-300';
+                  else if (isSun || isHoliday) dateNumColor = 'text-red-500';
+                  else if (isSat) dateNumColor = 'text-blue-500';
                   
-                  {/* 프로젝트 밴드 층 */}
-                  <div className="flex flex-col space-y-[2px] py-1 pb-2 flex-1 z-20 pointer-events-none overflow-visible">
-                    {dayProjects.map((s, sIdx) => {
-                      if (!s) return <div key={`empty-${sIdx}`} className="h-[24px] shrink-0 pointer-events-none"></div>;
-                      
-                      const isActualStart = s.startDate === dateStr;
-                      const isActualEnd = s.endDate === dateStr;
-                      const isRowStart = colIndex === 0;
-                      
-                      const isStart = isActualStart || isRowStart;
+                  const dayProjects = [];
+                  for (let i = 0; i < maxRowSlot; i++) {
+                    const proj = rowProjects.find(s => s.startDate <= dateStr && s.endDate >= dateStr && rowScheduleToSlot[s.id] === i);
+                    dayProjects.push(proj || null);
+                  }
 
-                      if (!isStart) {
-                        return <div key={s.id} className="h-[24px] shrink-0 pointer-events-none"></div>;
-                      }
+                  const columns = showWeekend ? 7 : 5;
 
-                      const sStart = new Date(Math.max(new Date(s.startDate).getTime(), new Date(dateStr).getTime()));
-                      const sEnd = new Date(s.endDate);
-                      const diffTime = sEnd.getTime() - sStart.getTime();
-                      const daysLeftInProj = Math.round(diffTime / (1000 * 60 * 60 * 24)) + 1;
-                      const daysLeftInRow = columns - colIndex;
-                      const segmentDuration = Math.min(daysLeftInProj, daysLeftInRow);
-
-                      const baseColor = s.color || 'bg-blue-500';
-                      let bandBg = baseColor;
-                      if (s.status === '완료') {
-                        bandBg = 'bg-gray-400 opacity-60'; 
-                      } else if (s.status === '예정') {
-                        bandBg = `${baseColor} opacity-40`; 
-                      }
-
-                      const isRowEnd = segmentDuration === daysLeftInRow;
-                      const isProjectEnd = segmentDuration === daysLeftInProj;
-                      
-                      let deduct = 0;
-                      let leftClass = 'left-0';
-                      let roundedClasses = '';
-
-                      if (isActualStart || isRowStart) {
-                        deduct += 4;
-                        leftClass = 'left-1';
-                        roundedClasses += 'rounded-l-md ';
-                      }
-                      
-                      if (isProjectEnd || isRowEnd) {
-                        deduct += 4;
-                        roundedClasses += 'rounded-r-md ';
-                      }
-
-                      const widthStyle = `calc(${segmentDuration * 100}% + ${segmentDuration - 1}px - ${deduct}px)`;
-
-                      const handleTooltip = (e, s) => {
-                        if (!calendarRef.current) return;
-                        const container = e.currentTarget.querySelector('.project-content-container');
-                        const textSpan = e.currentTarget.querySelector('.project-name-text');
-                        
-                        let isTruncated = false;
-                        if (textSpan && textSpan.scrollWidth > textSpan.clientWidth) isTruncated = true;
-                        if (container && container.scrollWidth > container.clientWidth) isTruncated = true;
-
-                        if (isTruncated) {
-                          setTooltipInfo({ visible: true, x: e.clientX, y: e.clientY, text: s.name, assignee: s.assignee });
-                        } else {
-                          setTooltipInfo(prev => prev.visible ? { visible: false, x: 0, y: 0, text: '', assignee: '' } : prev);
+                  return (
+                    <div 
+                      key={dateStr} 
+                      className={`group flex flex-col bg-white h-full relative cursor-pointer ${!isCurrentMonth ? 'bg-gray-50/80' : 'transition-colors duration-300'}`}
+                      style={{ zIndex: 50 - colIndex }}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const resizeProjectId = e.dataTransfer.getData('resizeProjectId');
+                        if (resizeProjectId && onUpdateEndDate) {
+                          onUpdateEndDate(resizeProjectId, dateStr);
                         }
-                      };
+                        const resizeStartProjectId = e.dataTransfer.getData('resizeStartProjectId');
+                        if (resizeStartProjectId && onUpdateStartDate) {
+                          onUpdateStartDate(resizeStartProjectId, dateStr);
+                        }
+                      }}
+                    >
+                      {/* 빈공간 클릭 배경 층 (Plus 버튼 제거) */}
+                      <div 
+                        className="absolute inset-0 z-0 flex flex-col pointer-events-auto"
+                        onClick={() => onCellClick && onCellClick(dateStr)}
+                      >
+                        <div className="absolute inset-0 bg-transparent hover:bg-gray-50/50 transition-colors pointer-events-none"></div>
+                      </div>
 
-                      return (
-                        <div key={s.id} className="h-[24px] shrink-0 relative w-full z-20 pointer-events-auto">
-                          <div 
-                            onClick={(e) => { e.stopPropagation(); onShowDetails(s); }}
-                            onMouseEnter={(e) => handleTooltip(e, s)}
-                            onMouseMove={(e) => handleTooltip(e, s)}
-                            onMouseLeave={() => setTooltipInfo({ visible: false, x: 0, y: 0, text: '', assignee: '' })}
-                            className={`absolute top-0 bottom-0 flex items-center cursor-pointer transition-all hover:brightness-110 ${bandBg} text-white shadow-sm text-[11px] font-bold tracking-wide ${leftClass} ${roundedClasses}`}
-                            style={{ width: widthStyle }}
-                          >
-                            {isActualStart && user?.role !== 'viewer' && (
-                              <div 
-                                draggable
-                                onDragStart={(e) => {
-                                  e.stopPropagation();
-                                  e.dataTransfer.setData('resizeStartProjectId', s.id);
-                                }}
-                                className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-white/40 z-30 rounded-l-md transition-colors"
-                                title="드래그하여 시작일 변경"
-                              />
-                            )}
+                      {/* 날짜 숫자 */}
+                      <div className="h-8 pt-2 px-2 flex justify-start shrink-0 z-10 pointer-events-none">
+                        <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-gray-900 text-white shadow-lg' : dateNumColor}`}>
+                          {date.getDate()}
+                        </span>
+                      </div>
+                      
+                      {/* 프로젝트 밴드 층 */}
+                      <div className="flex flex-col space-y-[2px] py-1 pb-2 flex-1 z-20 pointer-events-none overflow-visible">
+                        {dayProjects.map((s, sIdx) => {
+                          if (!s) return <div key={`empty-${sIdx}`} className="h-[24px] shrink-0 pointer-events-none"></div>;
+                          
+                          const isActualStart = s.startDate === dateStr;
+                          const isRowStart = colIndex === 0;
+                          const isStart = isActualStart || isRowStart;
 
-                            <span className="project-content-container w-full flex items-center pr-1 pl-2 h-full pointer-events-none min-w-0">
-                              <span className="truncate project-name-text shrink leading-none">{s.name}</span>
-                              {s.assignee && (
-                                <span className="ml-1.5 px-[5px] h-[15px] bg-white/25 text-white rounded flex items-center justify-center text-[9px] font-bold tracking-wider shrink-0 shadow-sm border border-white/20 drop-shadow-md">
-                                  {s.assignee}
-                                </span>
-                              )}
-                            </span>
+                          if (!isStart) {
+                            return <div key={s.id} className="h-[24px] shrink-0 pointer-events-none"></div>;
+                          }
+
+                          let segmentDuration = 0;
+                          for (let i = colIndex; i < row.length; i++) {
+                            if (row[i].dateStr <= s.endDate) segmentDuration++;
+                            else break;
+                          }
+
+                          const baseColor = s.color || 'bg-blue-500';
+                          let bandBg = baseColor;
+                          if (s.status === '완료') bandBg = 'bg-gray-400 opacity-60'; 
+                          else if (s.status === '예정') bandBg = `${baseColor} opacity-40`; 
+
+                          const isProjectEnd = s.endDate === row[colIndex + segmentDuration - 1].dateStr;
+                          const isRowEnd = (colIndex + segmentDuration) === row.length;
+                          
+                          let deduct = 0;
+                          let leftClass = 'left-0';
+                          let roundedClasses = '';
+
+                          if (isActualStart || isRowStart) {
+                            deduct += 4;
+                            leftClass = 'left-1';
+                            roundedClasses += 'rounded-l-md ';
+                          }
+                          
+                          if (isProjectEnd || isRowEnd) {
+                            deduct += 4;
+                            roundedClasses += 'rounded-r-md ';
+                          }
+
+                          const widthStyle = `calc(${segmentDuration * 100}% + ${segmentDuration - 1}px - ${deduct}px)`;
+
+                          const handleTooltip = (e, s) => {
+                            if (!calendarRef.current) return;
+                            const container = e.currentTarget.querySelector('.project-content-container');
+                            const textSpan = e.currentTarget.querySelector('.project-name-text');
                             
-                            {isProjectEnd && user?.role !== 'viewer' && (
+                            let isTruncated = false;
+                            if (textSpan && textSpan.scrollWidth > textSpan.clientWidth) isTruncated = true;
+                            if (container && container.scrollWidth > container.clientWidth) isTruncated = true;
+
+                            if (isTruncated) {
+                              setTooltipInfo({ visible: true, x: e.clientX, y: e.clientY, text: s.name, assignee: s.assignee });
+                            } else {
+                              setTooltipInfo(prev => prev.visible ? { visible: false, x: 0, y: 0, text: '', assignee: '' } : prev);
+                            }
+                          };
+
+                          return (
+                            <div key={s.id} className="h-[24px] shrink-0 relative w-full z-20 pointer-events-auto">
                               <div 
-                                draggable
-                                onDragStart={(e) => {
-                                  e.stopPropagation();
-                                  e.dataTransfer.setData('resizeProjectId', s.id);
-                                }}
-                                className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-white/40 z-30 rounded-r-md transition-colors"
-                                title="드래그하여 종료일 변경"
-                              />
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                                onClick={(e) => { e.stopPropagation(); onShowDetails(s); }}
+                                onMouseEnter={(e) => handleTooltip(e, s)}
+                                onMouseMove={(e) => handleTooltip(e, s)}
+                                onMouseLeave={() => setTooltipInfo({ visible: false, x: 0, y: 0, text: '', assignee: '' })}
+                                className={`absolute top-0 bottom-0 flex items-center cursor-pointer transition-all hover:brightness-110 ${bandBg} text-white shadow-sm text-[11px] font-bold tracking-wide ${leftClass} ${roundedClasses} ${isDragging ? 'pointer-events-none' : 'pointer-events-auto'}`}
+                                style={{ width: widthStyle }}
+                              >
+                                {isActualStart && user?.role !== 'viewer' && (
+                                  <div 
+                                    draggable
+                                    onDragStart={(e) => {
+                                      e.stopPropagation();
+                                      e.dataTransfer.setData('resizeStartProjectId', s.id);
+                                      setTimeout(() => setIsDragging(true), 0);
+                                    }}
+                                    onDragEnd={() => setIsDragging(false)}
+                                    className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-white/40 z-30 rounded-l-md transition-colors pointer-events-auto"
+                                    title="드래그하여 시작일 변경"
+                                  />
+                                )}
+
+                                <span className="project-content-container w-full flex items-center pr-1 pl-2 h-full pointer-events-none min-w-0">
+                                  <span className="truncate project-name-text shrink leading-none">{s.name}</span>
+                                  {s.assignee && (
+                                    <span className="ml-1.5 px-[5px] h-[15px] bg-white/25 text-white rounded flex items-center justify-center text-[9px] font-bold tracking-wider shrink-0 shadow-sm border border-white/20 drop-shadow-md">
+                                      {s.assignee}
+                                    </span>
+                                  )}
+                                </span>
+                                
+                                {isProjectEnd && user?.role !== 'viewer' && (
+                                  <div 
+                                    draggable
+                                    onDragStart={(e) => {
+                                      e.stopPropagation();
+                                      e.dataTransfer.setData('resizeProjectId', s.id);
+                                      setTimeout(() => setIsDragging(true), 0);
+                                    }}
+                                    onDragEnd={() => setIsDragging(false)}
+                                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize hover:bg-white/40 z-30 rounded-r-md transition-colors pointer-events-auto"
+                                    title="드래그하여 종료일 변경"
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
       </div>
     );
